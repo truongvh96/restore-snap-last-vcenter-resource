@@ -1,0 +1,48 @@
+- name: Gather VM facts
+  community.vmware.vmware_vm_info:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+  register: vm_info
+
+- name: Filter VMs by resource pool
+  set_fact:
+    filtered_vms: "{{ vm_info.virtual_machines | selectattr('resource_pool', 'eq', 'Sys-intern') | list }}"
+
+- name: Gather VM snapshot facts
+  community.vmware.vmware_guest_snapshot_info:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+    datacenter: "{{ datacenter_name }}"
+    folder: "{{ item.folder }}"
+    name: "{{ item.guest_name }}"
+  loop: "{{ filtered_vms }}"
+  register: snapshot_info
+
+- name: Restore latest snapshot for filtered VMs
+  community.vmware.vmware_guest_snapshot:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+    datacenter: "{{ datacenter_name }}"
+    folder: "{{ item.item.folder }}"
+    name: "{{ item.item.guest_name }}"
+    snapshot_name: "{{ item.guest_snapshots.current_snapshot.name }}"
+    state: revert
+  loop: "{{ snapshot_info.results }}"
+
+- name: Power On VMs
+  community.vmware.vmware_guest_powerstate:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: False
+    datacenter: "{{ datacenter_name }}"
+    name: "{{ item.guest_name }}"
+    state: powered-on
+  loop: "{{ vm_info.virtual_machines }}"
+  delegate_to: localhost
