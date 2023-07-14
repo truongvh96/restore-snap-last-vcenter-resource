@@ -8,7 +8,7 @@
 
 - name: Filter VMs by resource pool
   set_fact:
-    filtered_vms: "{{ vm_info.virtual_machines | selectattr('resource_pool', 'eq', 'Sys-intern') | list }}"
+    filtered_vms: "{{ vm_info.virtual_machines | selectattr('resource_pool', 'eq', '{{ resource_pool }}') | list }}"
 
 - name: Gather VM snapshot facts
   community.vmware.vmware_guest_snapshot_info:
